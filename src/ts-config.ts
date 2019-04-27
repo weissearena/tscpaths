@@ -21,7 +21,6 @@ export interface TSAlias {
 export interface TSConfig {
     projectRoot: string;
     outRoot: string;
-    aliasRoot: string;
     aliases: TSAlias[];
 }
 
@@ -43,7 +42,6 @@ export function loadTSConfig(projectFile: string): TSConfig {
     const config: TSConfig = {
         projectRoot,
         outRoot: resolve(projectRoot, outDir),
-        aliasRoot: resolve(projectRoot, baseUrl),
         aliases: getAliases(paths),
     };
 

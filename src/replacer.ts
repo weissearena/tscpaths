@@ -13,7 +13,6 @@ export interface ReplacerConfig {
     projectRoot: string;
     srcRoot: string;
     outRoot: string;
-    aliasRoot: string;
     aliases: TSAlias[];
     dryRun: boolean;
     verbose: boolean;
@@ -28,12 +27,11 @@ export class Replacer {
         verbose = false
     ): Replacer {
         const projectFile = resolve(process.cwd(), project);
-        const { projectRoot, outRoot, aliasRoot, aliases } = loadTSConfig(projectFile);
+        const { projectRoot, outRoot, aliases } = loadTSConfig(projectFile);
         return new Replacer({
             projectRoot,
             srcRoot: resolve(src),
             outRoot: out ? resolve(out) : outRoot,
-            aliasRoot,
             aliases,
             dryRun,
             verbose,
@@ -99,21 +97,20 @@ export class Replacer {
     }
 
     private absoluteToRelative(modulePath: string, outFile: string): string {
-        const { aliases, aliasRoot, outRoot } = this.config;
+        const { aliases, outRoot } = this.config;
         const outRelative = relative(outRoot, outFile);
 
         for (const { prefix, aliasPaths } of aliases) {
             if (modulePath.startsWith(prefix)) {
                 const modulePathRel = modulePath.substring(prefix.length);
-                const srcFile = this.outFileToSrcFile(outFile);
 
                 for (const aliasPath of aliasPaths) {
-                    const moduleSrc = resolve(aliasRoot, aliasPath, modulePathRel);
+                    const moduleOut = resolve(outRoot, aliasPath, modulePathRel);
                     if (
-                        existsSync(moduleSrc) ||
-                        fileExtensions.some((ext) => existsSync(moduleSrc + ext))
+                        existsSync(moduleOut) ||
+                        fileExtensions.some((ext) => existsSync(moduleOut + ext))
                     ) {
-                        const moduleRelative = toRelative(dirname(srcFile), moduleSrc);
+                        const moduleRelative = toRelative(dirname(outFile), moduleOut);
                         this.captureReplacement(outRelative, modulePath, moduleRelative);
                         return moduleRelative;
                     }
@@ -122,11 +119,6 @@ export class Replacer {
             }
         }
         return modulePath;
-    }
-
-    private outFileToSrcFile(outFile: string): string {
-        const { srcRoot, outRoot } = this.config;
-        return resolve(srcRoot, relative(outRoot, outFile));
     }
 
     private captureReplacement(outPath: string, modulePath: string, replacementPath: string): void {
