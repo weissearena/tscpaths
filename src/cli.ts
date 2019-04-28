@@ -6,7 +6,7 @@ import { Replacer } from './replacer';
 function main(): void {
     program
         .version('0.0.1')
-        .option('-p, --project <file>', 'path to tsconfig.json')
+        .option('-t, --tsconfig <file>', 'path to tsconfig.json')
         .option('-s, --src <path>', 'source root path')
         .option('-o, --out [path]', 'output root path')
         .option('-d, --dry-run', 'only prints replacements to console')
@@ -14,18 +14,19 @@ function main(): void {
 
     program.parse(process.argv);
 
-    const { project, src, out, dryRun, verbose } = program as {
-        project?: string;
+    const { tsconfig, src, out, dryRun, verbose } = program as {
+        tsconfig?: string;
         src?: string;
         out?: string;
         dryRun?: boolean;
         verbose?: boolean;
     };
 
-    if (!project) throw new Error('--project must be specified');
+    if (!tsconfig) throw new Error('--tsconfig must be specified');
     if (!src) throw new Error('--src must be specified');
 
-    Replacer.fromTSConfig(project, src, out, dryRun, verbose || dryRun).run();
+    const replacer = new Replacer({ tsconfig, src, out, dryRun, verbose });
+    replacer.run();
 }
 
 try {

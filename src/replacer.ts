@@ -9,6 +9,14 @@ const fileExtensions = ['.js', '.jsx', '.ts', '.tsx', '.d.ts', '.json'];
 const requireRegex = /(?:import|require)\(['"]([^'"]*)['"]\)/g;
 const importRegex = /(?:import|from) ['"]([^'"]*)['"]/g;
 
+export interface ReplacerArgs {
+    tsconfig: string;
+    src: string;
+    out?: string;
+    dryRun?: boolean;
+    verbose?: boolean;
+}
+
 export interface ReplacerConfig {
     projectRoot: string;
     srcRoot: string;
@@ -19,29 +27,24 @@ export interface ReplacerConfig {
 }
 
 export class Replacer {
-    public static fromTSConfig(
-        project: string,
-        src: string,
-        out?: string,
-        dryRun = false,
-        verbose = false
-    ): Replacer {
-        const projectFile = resolve(process.cwd(), project);
+    public config: ReplacerConfig;
+
+    private replacements: { [outFile: string]: Array<[string, string]> } = {};
+    private errors: { [outFile: string]: string[] } = {};
+
+    constructor({ tsconfig, src, out, dryRun = false, verbose = false }: ReplacerArgs) {
+        const projectFile = resolve(process.cwd(), tsconfig);
         const { projectRoot, outRoot, aliases } = loadTSConfig(projectFile);
-        return new Replacer({
+
+        this.config = {
             projectRoot,
             srcRoot: resolve(src),
             outRoot: out ? resolve(out) : outRoot,
             aliases,
             dryRun,
             verbose,
-        });
+        };
     }
-
-    private replacements: { [outFile: string]: Array<[string, string]> } = {};
-    private errors: { [outFile: string]: string[] } = {};
-
-    constructor(public config: ReplacerConfig) {}
 
     public run(): void {
         const { outRoot, dryRun, verbose } = this.config;
@@ -59,7 +62,7 @@ export class Replacer {
             if (!dryRun && text !== newText) writeFileSync(file, newText, 'utf8');
         }
 
-        if (verbose) {
+        if (dryRun || verbose) {
             console.log(
                 JSON.stringify(
                     {
