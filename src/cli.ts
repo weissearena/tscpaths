@@ -26,7 +26,7 @@ function main(): void {
     if (!src) throw new Error('--src must be specified');
 
     const replacer = new Replacer({ tsconfig, src, out, dryRun, verbose });
-    replacer.run();
+    replacer.runSync();
 }
 
 try {

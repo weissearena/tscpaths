@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { sync as globSync } from 'globby';
+import * as glob from 'globby';
 import { dirname, relative, resolve } from 'path';
 import { loadTSConfig, TSAliasMap } from './ts-config';
-import { toRelative } from './util';
+import { readFile, toRelative, writeFile } from './util';
 
 const fileExtensions = ['.js', '.jsx', '.ts', '.tsx', '.d.ts', '.json'];
 
@@ -29,6 +29,7 @@ export interface ReplacerConfig {
 export class Replacer {
     public config: ReplacerConfig;
 
+    private running = false;
     private replacements: { [outFile: string]: Array<[string, string]> } = {};
     private errors: { [outFile: string]: string[] } = {};
 
@@ -46,10 +47,36 @@ export class Replacer {
         };
     }
 
-    public run(): void {
-        const { outRoot, dryRun, verbose } = this.config;
+    public async run(): Promise<void> {
+        if (this.running) throw Error('Replacer already running!');
+        this.running = true;
 
-        const files = globSync(`${outRoot}/**/*.{js,jsx,ts,tsx}`, {
+        const { outRoot, dryRun } = this.config;
+        try {
+            const files = await glob(`${outRoot}/**/*.{js,jsx,ts,tsx}`, {
+                dot: true,
+                noDir: true,
+            } as any);
+
+            const resolved = files.map((path: string) => resolve(path));
+
+            await Promise.all(
+                resolved.map(async (file) => {
+                    const text = await readFile(file, 'utf8');
+                    const newText = this.replaceAlias(text, file);
+                    if (!dryRun && text !== newText) await writeFile(file, newText, 'utf8');
+                })
+            );
+        } finally {
+            this.logRun();
+            this.running = false;
+        }
+    }
+
+    public runSync(): void {
+        const { outRoot, dryRun } = this.config;
+
+        const files = glob.sync(`${outRoot}/**/*.{js,jsx,ts,tsx}`, {
             dot: true,
             noDir: true,
         } as any);
@@ -62,22 +89,7 @@ export class Replacer {
             if (!dryRun && text !== newText) writeFileSync(file, newText, 'utf8');
         }
 
-        if (dryRun || verbose) {
-            console.log(
-                JSON.stringify(
-                    {
-                        ...this.config,
-                        replacements: this.replacements,
-                        errors: this.errors,
-                    },
-                    null,
-                    4
-                )
-            );
-        }
-
-        this.replacements = {};
-        this.errors = {};
+        this.logRun();
     }
 
     private replaceAlias(text: string, outFile: string): string {
@@ -132,5 +144,24 @@ export class Replacer {
     private captureError(outPath: string, modulePath: string): void {
         if (!this.errors[outPath]) this.errors[outPath] = [];
         this.errors[outPath].push(modulePath);
+    }
+
+    private logRun(): void {
+        const { dryRun, verbose } = this.config;
+        if (dryRun || verbose) {
+            console.log(
+                JSON.stringify(
+                    {
+                        ...this.config,
+                        replacements: this.replacements,
+                        errors: this.errors,
+                    },
+                    null,
+                    4
+                )
+            );
+        }
+        this.replacements = {};
+        this.errors = {};
     }
 }
