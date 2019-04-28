@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { sync as globSync } from 'globby';
 import { dirname, relative, resolve } from 'path';
-import { loadTSConfig, TSAlias } from './ts-config';
+import { loadTSConfig, TSAliasMap } from './ts-config';
 import { toRelative } from './util';
 
 const fileExtensions = ['.js', '.jsx', '.ts', '.tsx', '.d.ts', '.json'];
@@ -13,7 +13,7 @@ export interface ReplacerConfig {
     projectRoot: string;
     srcRoot: string;
     outRoot: string;
-    aliases: TSAlias[];
+    aliases: TSAliasMap;
     dryRun: boolean;
     verbose: boolean;
 }
@@ -100,7 +100,7 @@ export class Replacer {
         const { aliases, outRoot } = this.config;
         const outRelative = relative(outRoot, outFile);
 
-        for (const { prefix, aliasPaths } of aliases) {
+        for (const [prefix, aliasPaths] of Object.entries(aliases)) {
             if (modulePath.startsWith(prefix)) {
                 const modulePathRel = modulePath.substring(prefix.length);
 

@@ -1,10 +1,16 @@
 import { dirname, resolve } from 'path';
 
-export interface TSPaths {
-    [key: string]: string[];
+export interface TSAliasMap {
+    [alias: string]: string[];
 }
 
-export interface RawTSConfig {
+interface TSConfig {
+    projectRoot: string;
+    outRoot: string;
+    aliases: TSAliasMap;
+}
+
+interface RawTSConfig {
     extends?: string;
     compilerOptions?: {
         baseUrl?: string;
@@ -13,15 +19,8 @@ export interface RawTSConfig {
     };
 }
 
-export interface TSAlias {
-    prefix: string;
-    aliasPaths: string[];
-}
-
-export interface TSConfig {
-    projectRoot: string;
-    outRoot: string;
-    aliases: TSAlias[];
+interface TSPaths {
+    [key: string]: string[];
 }
 
 export function loadTSConfig(projectFile: string): TSConfig {
@@ -56,11 +55,15 @@ export function loadTSConfig(projectFile: string): TSConfig {
     return config;
 }
 
-function getAliases(paths: TSPaths): TSAlias[] {
-    return Object.keys(paths)
-        .map((alias) => ({
-            prefix: alias.replace(/\*$/, ''),
-            aliasPaths: paths[alias].map((p: string) => p.replace(/\*$/, '')),
-        }))
-        .filter(({ prefix }) => prefix);
+function getAliases(paths: TSPaths): TSAliasMap {
+    const aliasMap: TSAliasMap = {};
+    for (const [alias, aliasPaths] of Object.entries(paths)) {
+        const prefix = stripGlob(alias);
+        if (prefix !== '') aliasMap[prefix] = aliasPaths.map(stripGlob);
+    }
+    return aliasMap;
+}
+
+function stripGlob(s: string): string {
+    return s.replace(/\*$/, '');
 }
